@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemantauan Pemotongan Rumput</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background: linear-gradient(to right, #74ebd5, #acb6e5);
+            font-family: 'Arial', sans-serif;
+        }
+        .status-due {
+            color: red;
+            font-weight: bold;
+        }
+        .status-ok {
+            color: green;
+        }
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .btn-primary {
+            background: #007bff;
+            border: none;
+            transition: background 0.3s;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .table thead th {
+            background-color: #007bff;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center text-white">Pemantauan Pemotongan Rumput</h1>
+        <p class="text-center text-light">Pantau jadwal pemotongan rumput di sekitar area Glide Path.</p>
+
+        <!-- Tambah Tugas Baru -->
+        <div class="row mt-5">
+            <div class="col-md-6 offset-md-3">
+                <div class="card p-4">
+                    <h4 class="text-center">Tambah Tugas Pemotongan Baru</h4>
+                    <form id="addTaskForm">
+                        <div class="mb-3">
+                            <label for="taskArea" class="form-label">Area</label>
+                            <input type="text" class="form-control" id="taskArea" placeholder="Masukkan area (contoh: 100m - 200m dari antena)" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDate" class="form-label">Tanggal Pemotongan Terakhir</label>
+                            <input type="date" class="form-control" id="taskDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="beforePhoto" class="form-label">Foto Sebelum</label>
+                            <input type="file" class="form-control" id="beforePhoto" accept="image/*" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="afterPhoto" class="form-label">Foto Sesudah</label>
+                            <input type="file" class="form-control" id="afterPhoto" accept="image/*" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Tambah Tugas</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Tugas -->
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card p-4">
+                    <h4 class="text-center">Filter Tugas</h4>
+                    <div class="d-flex justify-content-center">
+                        <button class="btn btn-outline-primary mx-2" onclick="filterTasks('all')">Semua</button>
+                        <button class="btn btn-outline-success mx-2" onclick="filterTasks('ok')">OK</button>
+                        <button class="btn btn-outline-danger mx-2" onclick="filterTasks('due')">Lewat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daftar Tugas -->
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card p-4">
+                    <h4 class="text-center">Daftar Tugas</h4>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Area</th>
+                                <th scope="col">Tanggal Pemotongan Terakhir</th>
+                                <th scope="col">Tanggal Jatuh Tempo Berikutnya</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Foto Sebelum</th>
+                                <th scope="col">Foto Sesudah</th>
+                                <th scope="col">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskList">
+                            <!-- Konten dinamis akan ditambahkan di sini -->
+                        </tbody>
+                    </table>
+                    <button class="btn btn-secondary" onclick="exportToExcel()">Ekspor ke Excel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const taskList = document.getElementById('taskList');
+        const addTaskForm = document.getElementById('addTaskForm');
+
+        let tasks = [];
+
+        function calculateNextDueDate(lastCutDate) {
+            const date = new Date(lastCutDate);
+            date.setDate(date.getDate() + 14); // Tambahkan 14 hari
+            return date;
+        }
+
+        function getStatus(nextDueDate) {
+            const today = new Date();
+            return today > nextDueDate ? 'Lewat' : 'OK';
+        }
+
+        function renderTasks(filter = 'all') {
+            taskList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const nextDueDate = calculateNextDueDate(task.lastCutDate);
+                const status = getStatus(nextDueDate);
+
+                if (filter !== 'all' && filter !== status.toLowerCase()) return;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${task.area}</td>
+                    <td>${task.lastCutDate}</td>
+                    <td>${nextDueDate.toISOString().split('T')[0]}</td>
+                    <td class="${status === 'Lewat' ? 'status-due' : 'status-ok'}">${status}</td>
+                    <td><img src="${task.beforePhoto}" alt="Foto Sebelum" style="width: 100px;"></td>
+                    <td><img src="${task.afterPhoto}" alt="Foto Sesudah" style="width: 100px;"></td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editTask(${index})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTask(${index})">Hapus</button>
+                    </td>
+                `;
+                taskList.appendChild(row);
+            });
+        }
+
+        function addTask(event) {
+            event.preventDefault();
+            const area = document.getElementById('taskArea').value;
+            const lastCutDate = document.getElementById('taskDate').value;
+            const beforePhotoInput = document.getElementById('beforePhoto');
+            const afterPhotoInput = document.getElementById('afterPhoto');
+            
+            if (beforePhotoInput.files.length === 0 || afterPhotoInput.files.length === 0) {
+                alert('Silakan unggah foto sebelum dan sesudah.');
+                return;
+            }
+            
+            const beforePhoto = URL.createObjectURL(beforePhotoInput.files[0]);
+            const afterPhoto = URL.createObjectURL(afterPhotoInput.files[0]);
+
+            tasks.push({ area, lastCutDate, beforePhoto, afterPhoto });
+            renderTasks();
+
+            addTaskForm.reset();
+        }
+
+        function editTask(index) {
+            const task = tasks[index];
+            document.getElementById('taskArea').value = task.area;
+            document.getElementById('taskDate').value = task.lastCutDate;
+            tasks.splice(index, 1);
+            renderTasks();
+        }
+
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            renderTasks();
+        }
+
+        function filterTasks(status) {
+            renderTasks(status);
+        }
+
+        function exportToExcel() {
+            let csvContent = 'Area,Tanggal Pemotongan Terakhir,Tanggal Jatuh Tempo Berikutnya,Status\n';
+            tasks.forEach(task => {
+                const nextDueDate = calculateNextDueDate(task.lastCutDate);
+                const status = getStatus(nextDueDate);
+                csvContent += `${task.area},${task.lastCutDate},${nextDueDate.toISOString().split('T')[0]},${status}\n`;
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'tugas_pemotongan_rumput.csv';
+            link.click();
+        }
+
+        addTaskForm.addEventListener('submit', addTask);
+        renderTasks();
+    </script>
+</body>
+</html>
